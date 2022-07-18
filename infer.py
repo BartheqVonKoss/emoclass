@@ -7,37 +7,50 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 
+from config.training_config import get_training_config
 from src.dataset.preprocess_helper import preprocess_helper
 
 
 def run_inference(text, model_type: str):
     logger = logging.getLogger(__name__)
+    train_cfg = get_training_config()
     # TODO connect somehow the models with models registry of mlflow (maybe)?
 
     if model_type == "RandomForest":
-        model_path = Path("workdir/checkpoints/RF/random_forest_model_50.joblib")
-        features_dump = Path("workdir/checkpoints/RF/features.joblib")
+        try:
+            model_path = train_cfg.RF_MODEL
+            features_dump = train_cfg.RF_FD
+            model = joblib.load(model_path)
+        except:
+            model_path = "doc/rf_model.joblib"
+            features_dump = "doc/rf_feat.joblib"
+            model = joblib.load(model_path)
+        # model_path = Path("workdir/checkpoints/RF/random_forest_model_50.joblib")
+        # features_dump = Path("workdir/checkpoints/RF/features.joblib")
     elif model_type == "LogisticRegression":
-        model_path = Path("workdir/checkpoints/LR/logistic_regression_model_50.joblib")
-        features_dump = Path("workdir/checkpoints/LR/features.joblib")
+        try:
+            model_path = train_cfg.LR_MODEL
+            features_dump = train_cfg.LR_FD
+            model = joblib.load(model_path)
+        except:
+            model_path = "doc/lr_model.joblib"
+            features_dump = "doc/lr_feat.joblib"
+            model = joblib.load(model_path)
+        # model_path = Path("workdir/checkpoints/LR/logistic_regression_model_50.joblib")
+        # features_dump = Path("workdir/checkpoints/LR/features.joblib")
 
-    model = joblib.load(model_path)
     logger.info(f"Model loaded from {model_path}.")
 
     with open(Path("data/emotions.txt"), encoding="UTF-8") as emotions_file:
-        emotions = [emotion.split("\n")[0] for emotion in emotions_file.readlines()]
+        emotions = [emotion.split(",") for emotion in emotions_file.readlines()][0]
         logger.info("Emotions loaded from data/emotions.txt")
 
+    # preprocess
     with open(features_dump, "rb") as buf:
         vectorizer = CountVectorizer(vocabulary=joblib.load(buf))
         features = vectorizer.transform([text]).toarray()
         voc = vectorizer.vocabulary
         logger.info(f"Vocabulary loaded from {features_dump}.")
-
-    # preprocess
-    # for _, func in preprocess_helper.items():
-    #     text = func(text)
-    # text = " ".join(text)
 
     # get predictions and confidences
     predictions = model.predict_proba(features).flatten()
@@ -51,12 +64,6 @@ def run_inference(text, model_type: str):
             vectorizer = CountVectorizer(vocabulary=joblib.load(buf))
             features = vectorizer.transform(textt).toarray()
         return features
-
-    # train_cfg = get_training_config()
-    # dataset = GoEmotionsDataset(train_cfg.LABELS_FILE, train_cfg.EMOTIONS_FILE, limit=20, train_cfg=train_cfg)
-    # dataset.load_tsv("data/train.tsv")
-    # dataset.initial_preprocess()
-    # train_dataloader = dataset.extract_features(transform=True)
 
     if model_type == "RandomForest":
         weights = model.feature_importances_

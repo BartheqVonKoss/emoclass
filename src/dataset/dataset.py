@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import joblib
+import mlflow
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
@@ -22,8 +23,9 @@ class GoEmotionsDataset:
         self.data: List = []
         self.limit = limit
         self.names_dict: Dict[str, int] = None
+        mlflow.log_artifact(emotions_path)
         with open(emotions_path, encoding="UTF-8") as emotions_file:
-            self.emotions = [emotion.split("\n")[0] for emotion in emotions_file.readlines()]
+            self.emotions = [emotion.split(",") for emotion in emotions_file.readlines()][0]
 
     # def get_labels(self):
     #     if labels_file:
@@ -77,6 +79,7 @@ class GoEmotionsDataset:
             # dump vocabulary to be used later
             with open(Path(self.train_cfg.CHECKPOINTS_DIR / "features.joblib"), "wb") as buf:
                 joblib.dump(vectorizer.vocabulary_, buf)
+                mlflow.log_artifact(Path(self.train_cfg.CHECKPOINTS_DIR / "features.joblib"))
         else:
             with open(Path(self.train_cfg.CHECKPOINTS_DIR / "features.joblib"), "rb") as buf:
                 vectorizer = CountVectorizer(vocabulary=pickle.load(buf))
