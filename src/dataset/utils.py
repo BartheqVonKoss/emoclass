@@ -1,5 +1,6 @@
 from typing import List
 
+import nltk
 from nltk import pos_tag, word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
@@ -58,3 +59,12 @@ def lemmatize(text) -> List[str]:
         result.append(wordnet.lemmatize(token, pos))
 
     return result
+
+
+def get_docs():
+    """Download nltk docs used when preprocessing."""
+    nltk.download("omw-1.4")
+    nltk.download("punkt")
+    nltk.download("stopwords")
+    nltk.download("averaged_perceptron_tagger")
+    nltk.download("wordnet")
