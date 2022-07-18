@@ -1,3 +1,6 @@
+import joblib
+from src.dataset.preprocess_helper import preprocess_helper
+import pickle
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
 from nltk.stem import PorterStemmer
@@ -15,11 +18,13 @@ from pathlib import Path
 
 
 class GoEmotionsDataset:
-    def __init__(self, labels_file: Optional[Union[Path, str]], emotions_path: Union[Path, str]):
+    def __init__(self, labels_file: Optional[Union[Path, str]], emotions_path: Union[Path, str], limit: Optional[int]=None, train_cfg=None):
         # self.data_file = data_file
         self.labels: List = None
         self.features = None
+        self.train_cfg = train_cfg
         self.data: List = []
+        self.limit = limit
         self.names_dict: Dict[str, int] = None
         with open(emotions_path, encoding="UTF-8") as emotions_file:
             self.emotions = [emotion.split("\n")[0] for emotion in emotions_file.readlines()]
@@ -31,10 +36,14 @@ class GoEmotionsDataset:
     #     else:
     #         self.label_mapping = 
 
+    def __len__(self):
+        return len(self.data)
 
     def load_tsv(self, tsv_path):
         """Load tsv file into a dataframe."""
-        self.data = pd.read_csv(tsv_path, sep="\t", names=["text", "label", "id"]).iloc[:256]
+        self.data = pd.read_csv(tsv_path, sep="\t", names=["text", "label", "id"])
+        if self.limit is not None:
+            self.data = self.data.iloc[:self.limit]
         # the code below outputs strange characters, let's go with pandas
         # with open(tsv_path, encoding="UTF-8") as tsv_file:
         #     self.names_dict = {"text": 0, "label": 1, "id": 2}  # to access easier
@@ -55,37 +64,53 @@ class GoEmotionsDataset:
     def initial_preprocess(self):
         """Apply sequentially cleaning tools from nltk to data."""
         # TODO wrap it in some sequential opeartion, like for over dict of options
-        print(self.data.head())
-        self.data["proc"] = self.data.text.copy()
-        self.data.proc = self.data.proc.str.lower()
-        print(self.data.head())
-        self.data.proc = self.data.proc.apply(lambda x: remove_whitespace(x))
-        print(self.data.head())
-        self.data.proc = self.data.proc.apply(lambda x: word_tokenize(x))
-        print(self.data.head())
-        # consider spell checking and correction
-        self.data.proc = self.data.proc.apply(lambda x: remove_stopwords(x))
-        print(self.data.head())
-        self.data.proc = self.data.proc.apply(lambda x: remove_punctation(x))
-        print(self.data.head())
-        # frequent_list = get_frequent_words(self.data)
-        # self.data.proc = self.data.proc.apply(lambda x: remove_freq_words(x, frequent_list))
         # print(self.data.head())
-        self.data.proc = self.data.proc.apply(lambda x: lemmatize(x))
-        print(self.data.head())
-        self.data.proc = self.data.proc.apply(lambda x: remove_single_chars(x))
-        print(self.data.head())
-        self.data.proc = self.data.proc.apply(lambda x: stem(x))
-        print(self.data.head())
+        self.data["proc"] = self.data.text.copy()
+        for n, func in preprocess_helper.items():
+            self.data.proc = self.data.proc.apply(lambda x: func(x))
+        # self.data.proc = self.data.proc.str.lower()
+        
+        # # print(self.data.head())
+        # self.data.proc = self.data.proc.apply(lambda x: remove_whitespace(x))
+        # # print(self.data.head())
+        # self.data.proc = self.data.proc.apply(lambda x: word_tokenize(x))
+        # # print(self.data.head())
+        # # consider spell checking and correction
+        # self.data.proc = self.data.proc.apply(lambda x: remove_stopwords(x))
+        # # print(self.data.head())
+        # self.data.proc = self.data.proc.apply(lambda x: remove_punctation(x))
+        # # print(self.data.head())
+        # # frequent_list = get_frequent_words(self.data)
+        # # self.data.proc = self.data.proc.apply(lambda x: remove_freq_words(x, frequent_list))
+        # # print(self.data.head())
+        # self.data.proc = self.data.proc.apply(lambda x: lemmatize(x))
+        # # print(self.data.head())
+        # self.data.proc = self.data.proc.apply(lambda x: remove_single_chars(x))
+        # # print(self.data.head())
+        # self.data.proc = self.data.proc.apply(lambda x: stem(x))
+        # print(self.data.head())
 
 
-    def extract_features(self):
+    def extract_features(self, transform: bool=False):
         """Extract features from preprocessed dataset."""
         # bag of words
-        vectorizer = CountVectorizer(ngram_range=(1, 2))
+        # vectorizer = CountVectorizer(ngram_range=(1, 2))
         self.data["proc_t"] = self.data.proc.apply(lambda x: " ".join(x))
-        features = vectorizer.fit_transform(self.data.proc_t).toarray()
-        dataset = {"features": features, "labels": self.data.label}
+        self.data["labels"] = self.data.label.apply(lambda x: int(x.split(',')[0]))
+        if not transform:
+            # this is case for training dataset
+            vectorizer = CountVectorizer()
+            features = vectorizer.fit_transform(self.data.proc_t).toarray()
+            # dump vocabulary to be used later
+            with open(Path(self.train_cfg.CHECKPOINTS_DIR / "features.joblib"), "wb") as buf:
+                joblib.dump(vectorizer.vocabulary_, buf)
+            # pickle.dump(vectorizer.vocabulary_, open(Path(self.train_cfg.CHECKPOINTS_DIR / "feature.pkl"), "wb"))
+        else:
+            with open(Path(self.train_cfg.CHECKPOINTS_DIR / "features.joblib"), "rb") as buf:
+                vectorizer = CountVectorizer(vocabulary=pickle.load(buf))
+                features = vectorizer.transform(self.data.proc_t).toarray()
+
+        dataset = {"features": features, "labels": np.asarray(self.data.labels)}
 
         return dataset
 
