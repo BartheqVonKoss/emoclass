@@ -9,9 +9,10 @@ github: [GoEmotions github](https://github.com/google-research/google-research/t
 #### Problems in question
 
 There are three possible ways of approaching the problem, depending on the number of classes (clusters).
+For now, no clustering is considered.
 
 ### Overall scheme
-A ppt page with boxes representing components.
+![overall_scheme](https://user-images.githubusercontent.com/37189954/179788142-9a73f156-0c91-4138-8bdb-d5a9b574917c.png)
 
 ### Installation
 
