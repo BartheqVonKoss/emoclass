@@ -38,6 +38,7 @@ def main():
         dataset.load_tsv("data/train.tsv")
         dataset.initial_preprocess()
         train_dataloader = dataset.extract_features()
+        class_weights = dataset.balance_classes()
         dataset.load_tsv("data/test.tsv")
         dataset.initial_preprocess()
         eval_dataloader = dataset.extract_features(transform=True)
@@ -58,6 +59,7 @@ def main():
         with open(train_cfg.EMOTIONS_FILE, encoding="UTF-8") as emotions_file:
             emotions = [emotion.split(",") for emotion in emotions_file.readlines()][0]
         model.classes_ = emotions
+        model.class_weight = class_weights
 
         trainer = Trainer(dataloaders, model, train_cfg)
         trainer()

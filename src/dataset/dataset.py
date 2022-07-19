@@ -7,6 +7,7 @@ import mlflow
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.utils.class_weight import compute_class_weight
 
 from src.dataset.preprocess_helper import preprocess_helper
 
@@ -20,7 +21,7 @@ class GoEmotionsDataset:
         self.labels: List = None
         self.features = None
         self.train_cfg = train_cfg
-        self.data: List = []
+        self.data: pd.core.frame.DataFrame = None
         self.limit = limit
         self.names_dict: Dict[str, int] = None
         mlflow.log_artifact(emotions_path)
@@ -40,8 +41,6 @@ class GoEmotionsDataset:
     def load_tsv(self, tsv_path):
         """Load tsv file into a dataframe."""
         self.data = pd.read_csv(tsv_path, sep="\t", names=["text", "label", "id"])
-        if self.limit is not None:
-            self.data = self.data.iloc[:self.limit]
         # the code below outputs strange characters, let's go with pandas
         # with open(tsv_path, encoding="UTF-8") as tsv_file:
         #     self.names_dict = {"text": 0, "label": 1, "id": 2}  # to access easier
@@ -59,8 +58,10 @@ class GoEmotionsDataset:
 
     def initial_preprocess(self):
         """Apply sequentially cleaning tools from nltk to data."""
+        if self.limit is not None:
+            self.data = self.data.iloc[:self.limit]
         self.data["proc"] = self.data.text.copy()
-        for n, func in preprocess_helper.items():
+        for _, func in preprocess_helper.items():
             self.data.proc = self.data.proc.apply(lambda x: func(x))
 
     def extract_features(self, transform: bool = False):
@@ -88,6 +89,15 @@ class GoEmotionsDataset:
         dataset = {"features": features, "labels": np.asarray(self.data.labels)}
 
         return dataset
+
+    def balance_classes(self):
+        """Get classes weight vector."""
+        class_weight_vector = compute_class_weight(
+            class_weight="balanced",
+            classes=np.arange(len(self.emotions)),
+            y=self.data.labels)
+        class_weight_dict = {i: class_weight_vector[i] for i in range(len(self.emotions))}
+        return class_weight_dict
 
 
 def main():
