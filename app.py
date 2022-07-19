@@ -13,7 +13,7 @@ get_docs()
 iface = gr.Interface(run_inference,
                      inputs=[gr.inputs.Textbox(lines=4),
                              gr.inputs.Dropdown(choices=["RandomForest", "LogisticRegression"])],
-                     outputs=[gr.outputs.Label(num_top_classes=5), "plot"],
+                     outputs=[gr.outputs.Label(num_top_classes=5), "plot"], live=True,
                      examples=[["[NAME] is not fascist. Heck,she's not even alt-right", "LogisticRegression"],
                                ["[NAME] is not fascist. Heck,she's not even alt-right", "RandomForest"],
                                ["Shes awful and its all about her. Try again. And when the show has awful ratings thatll be confirmed.", "LogisticRegression"],
